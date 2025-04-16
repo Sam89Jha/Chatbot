@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Bedrock AI Chat App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            background: #f0f0f0;
+            margin: 0;
+            padding: 20px;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        #chat-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        .chat-box {
+            background: white;
+            border: 1px solid #ccc;
+            width: 48%;
+            height: 50vh;
+            overflow-y: auto;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .message {
+            background: #e6f7ff;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+        }
+
+        .sentiment {
+            display: block;
+            font-size: 0.8em;
+            color: #555;
+            margin-top: 5px;
+        }
+
+        #input-container {
+            margin-top: 10px;
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        .input-section {
+            width: 48%;
+            background: white;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .input-section input[type="text"],
+        .input-section select,
+        .input-section input[type="file"],
+        .input-section button {
+            width: 100%;
+            padding: 6px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+        }
+
+        .input-section h3 {
+            margin-bottom: 10px;
+        }
+
+        .input-section button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        .input-section button:hover {
+            background: #45a049;
+        }
+
+        img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin-top: 10px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h2>Bedrock AI Chat Application</h2>
+
+    <div id="chat-container">
+        <div id="user1-chat" class="chat-box"></div>
+        <div id="user2-chat" class="chat-box"></div>
+    </div>
+
+    <div id="input-container">
+        <div class="input-section">
+            <h3>User 1</h3>
+            <select id="user1-locale">
+                <option value="en">English</option>
+                <option value="ms">Malay</option>
+                <option value="th">Thai</option>
+                <option value="vi">Vietnamese</option>
+                <option value="tl">Tagalog</option>
+                <option value="zh">Chinese</option>
+            </select>
+            <input type="text" id="user1-text" placeholder="Enter text...">
+            <button onclick="sendText('user1')">Send Text</button>
+            <select id="user1-tone">
+                <option value="formal">Formal</option>
+                <option value="casual">Casual</option>
+                <option value="funny">Funny</option>
+            </select>
+            <input type="file" id="user1-image">
+            <button onclick="sendImage('user1')">Send Image</button>
+        </div>
+
+        <div class="input-section">
+            <h3>User 2</h3>
+            <select id="user2-locale">
+                <option value="en">English</option>
+                <option value="ms">Malay</option>
+                <option value="th">Thai</option>
+                <option value="vi">Vietnamese</option>
+                <option value="tl">Tagalog</option>
+                <option value="zh">Chinese</option>
+            </select>
+            <input type="text" id="user2-text" placeholder="Enter text...">
+            <button onclick="sendText('user2')">Send Text</button>
+            <select id="user2-tone">
+                <option value="formal">Formal</option>
+                <option value="casual">Casual</option>
+                <option value="funny">Funny</option>
+            </select>
+            <input type="file" id="user2-image">
+            <button onclick="sendImage('user2')">Send Image</button>
+        </div>
+    </div>
+
+    <script>
+        function sendText(sender) {
+            const text = document.getElementById(sender + '-text').value;
+            const receiver = (sender === 'user1') ? 'user2' : 'user1';
+            const receiver_locale = document.getElementById(receiver + '-locale').value;
+
+            fetch('/send_text', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text, receiver_locale, sender })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    addMessageToChat(receiver, data.original_text, data.translated_text, data.sentiment, data.audio);
+                });
+        }
+
+        function sendImage(sender) {
+            const file = document.getElementById(sender + '-image').files[0];
+            const tone = document.getElementById(sender + '-tone').value;
+            const receiver = (sender === 'user1') ? 'user2' : 'user1';
+            const receiver_locale = document.getElementById(receiver + '-locale').value;
+
+            const formData = new FormData();
+            formData.append('image', file);
+            formData.append('receiver_locale', receiver_locale);
+            formData.append('tone', tone);
+            formData.append('sender', sender);
+
+            fetch('/send_image', {
+                method: 'POST',
+                body: formData
+            })
+                .then(res => res.json())
+                .then(data => {
+                    addMessageToChat(receiver, data.original_text, data.translated_text, data.sentiment, data.audio, data.image);
+                });
+        }
+
+        function addMessageToChat(receiver, originalText, translatedText, sentiment, audioPath, imagePath = null) {
+            const chatBox = document.getElementById(receiver + '-chat');
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message');
+
+            const translatedPara = document.createElement('p');
+            translatedPara.textContent = translatedText;
+            messageDiv.appendChild(translatedPara);
+
+            const originalPara = document.createElement('p');
+            originalPara.textContent = originalText;
+            originalPara.style.display = "none";
+            originalPara.style.fontStyle = "italic";
+            originalPara.style.color = "gray";
+            messageDiv.appendChild(originalPara);
+
+            const toggleButton = document.createElement('button');
+            toggleButton.textContent = "Show Original";
+            toggleButton.style.marginTop = "5px";
+            toggleButton.onclick = () => {
+                if (originalPara.style.display === "none") {
+                    originalPara.style.display = "block";
+                    toggleButton.textContent = "Hide Original";
+                } else {
+                    originalPara.style.display = "none";
+                    toggleButton.textContent = "Show Original";
+                }
+            };
+            messageDiv.appendChild(toggleButton);
+
+            const sentimentLabel = document.createElement('span');
+            sentimentLabel.classList.add('sentiment');
+            sentimentLabel.textContent = `Sentiment: ${sentiment}`;
+            messageDiv.appendChild(sentimentLabel);
+
+            if (imagePath) {
+                const img = document.createElement('img');
+                img.src = imagePath;
+                messageDiv.appendChild(img);
+            }
+
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            const audio = new Audio(audioPath + '?nocache=' + Math.random());
+            audio.play();
+        }
+    </script>
+
+</body>
+
+</html>
