@@ -170,5 +170,22 @@ def send_image():
     )
 
 
+@app.route("/narrate", methods=["POST"])
+def narrate():
+    data = request.get_json()
+    text = data["text"]
+    voice_id = "Matthew"
+
+    response = polly.synthesize_speech(Text=text, OutputFormat="mp3", VoiceId=voice_id)
+
+    unique_id = str(uuid.uuid4())
+    filename = f"static/narration_{unique_id}.mp3"
+
+    with open(filename, "wb") as file:
+        file.write(response["AudioStream"].read())
+
+    return jsonify({"audio": "/" + filename})
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001, debug=True)

@@ -167,21 +167,23 @@
 
     <div id="loader">Processing...</div>
 
+    <button onclick="runDemo()"
+        style="position:fixed; bottom:20px; right:20px; background:orange; color:white; font-size:16px; padding:10px 20px; border:none; border-radius:8px;">
+        🎬 Run Demo
+    </button>
+
     <script>
         function showLoader() {
             document.getElementById("loader").style.display = "block";
         }
-
         function hideLoader() {
             document.getElementById("loader").style.display = "none";
         }
-
         function sendText(sender) {
             showLoader();
             const text = document.getElementById(sender + '-text').value;
             const receiver = (sender === 'user1') ? 'user2' : 'user1';
             const receiver_locale = document.getElementById(receiver + '-locale').value;
-
             fetch('/send_text', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -204,13 +206,11 @@
             const tone = document.getElementById(sender + '-tone').value;
             const receiver = (sender === 'user1') ? 'user2' : 'user1';
             const receiver_locale = document.getElementById(receiver + '-locale').value;
-
             const formData = new FormData();
             formData.append('image', file);
             formData.append('receiver_locale', receiver_locale);
             formData.append('tone', tone);
             formData.append('sender', sender);
-
             fetch('/send_image', {
                 method: 'POST',
                 body: formData
@@ -230,18 +230,15 @@
             const chatBox = document.getElementById(receiver + '-chat');
             const messageDiv = document.createElement('div');
             messageDiv.classList.add('message');
-
             const translatedPara = document.createElement('p');
             translatedPara.textContent = translatedText;
             messageDiv.appendChild(translatedPara);
-
             const originalPara = document.createElement('p');
             originalPara.textContent = originalText;
             originalPara.style.display = "none";
             originalPara.style.fontStyle = "italic";
             originalPara.style.color = "gray";
             messageDiv.appendChild(originalPara);
-
             const toggleButton = document.createElement('button');
             toggleButton.textContent = "Show Original";
             toggleButton.style.marginTop = "5px";
@@ -255,23 +252,78 @@
                 }
             };
             messageDiv.appendChild(toggleButton);
-
             const sentimentLabel = document.createElement('span');
             sentimentLabel.classList.add('sentiment');
             sentimentLabel.textContent = `Sentiment: ${sentiment}`;
             messageDiv.appendChild(sentimentLabel);
-
             if (imagePath) {
                 const img = document.createElement('img');
                 img.src = imagePath;
                 messageDiv.appendChild(img);
             }
-
             chatBox.appendChild(messageDiv);
             chatBox.scrollTop = chatBox.scrollHeight;
-
             const audio = new Audio(audioPath + '?nocache=' + Math.random());
             audio.play();
+        }
+
+        // DEMO MODE BELOW 👇
+
+        async function narrate(text) {
+            const res = await fetch('/narrate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            });
+            const data = await res.json();
+            const audio = new Audio(data.audio + '?nocache=' + Math.random());
+            return new Promise(resolve => {
+                audio.onended = resolve;
+                audio.play();
+            });
+        }
+
+        async function runDemo() {
+            await narrate("Welcome to the AWS Bedrock AI demo.");
+            document.getElementById("user1-locale").value = "en";
+            document.getElementById("user2-locale").value = "tl";
+            document.getElementById("user1-text").value = "Hello team, this is Bedrock AI in action.";
+            await narrate("Now sending a text message in English to be translated to Tagalog.");
+            sendText("user1");
+            await sleep(6000);
+            await narrate("Now uploading an image with a funny tone for description.");
+            await simulateImageUpload("user1", "demo.jpg");
+            await sleep(8000);
+            document.getElementById("user2-text").value = "Thanks, this is amazing!";
+            document.getElementById("user2-locale").value = "vi";
+            await narrate("User two now replies in Vietnamese.");
+            sendText("user2");
+            await sleep(6000);
+            await narrate("Demo complete. Thank you.");
+        }
+
+        async function simulateImageUpload(sender, filename) {
+            const response = await fetch(`/static/${filename}`);
+            const blob = await response.blob();
+            const file = new File([blob], filename, { type: blob.type });
+            const tone = document.getElementById(sender + '-tone').value;
+            const receiver = (sender === 'user1') ? 'user2' : 'user1';
+            const receiver_locale = document.getElementById(receiver + '-locale').value;
+            const formData = new FormData();
+            formData.append('image', file);
+            formData.append('receiver_locale', receiver_locale);
+            formData.append('tone', tone);
+            formData.append('sender', sender);
+            const res = await fetch('/send_image', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            addMessageToChat(receiver, data.original_text, data.translated_text, data.sentiment, data.audio, data.image);
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
         }
     </script>
 
