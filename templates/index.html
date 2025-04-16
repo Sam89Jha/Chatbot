@@ -94,6 +94,21 @@
             margin-top: 10px;
             border-radius: 8px;
         }
+
+        #loader {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 9999;
+            font-size: 18px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
     </style>
 </head>
 
@@ -150,8 +165,19 @@
         </div>
     </div>
 
+    <div id="loader">Processing...</div>
+
     <script>
+        function showLoader() {
+            document.getElementById("loader").style.display = "block";
+        }
+
+        function hideLoader() {
+            document.getElementById("loader").style.display = "none";
+        }
+
         function sendText(sender) {
+            showLoader();
             const text = document.getElementById(sender + '-text').value;
             const receiver = (sender === 'user1') ? 'user2' : 'user1';
             const receiver_locale = document.getElementById(receiver + '-locale').value;
@@ -164,10 +190,16 @@
                 .then(res => res.json())
                 .then(data => {
                     addMessageToChat(receiver, data.original_text, data.translated_text, data.sentiment, data.audio);
+                    hideLoader();
+                })
+                .catch(err => {
+                    alert("Something went wrong!");
+                    hideLoader();
                 });
         }
 
         function sendImage(sender) {
+            showLoader();
             const file = document.getElementById(sender + '-image').files[0];
             const tone = document.getElementById(sender + '-tone').value;
             const receiver = (sender === 'user1') ? 'user2' : 'user1';
@@ -186,6 +218,11 @@
                 .then(res => res.json())
                 .then(data => {
                     addMessageToChat(receiver, data.original_text, data.translated_text, data.sentiment, data.audio, data.image);
+                    hideLoader();
+                })
+                .catch(err => {
+                    alert("Something went wrong!");
+                    hideLoader();
                 });
         }
 
