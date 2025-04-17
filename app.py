@@ -83,23 +83,23 @@ def send_image():
     if tone == "formal":
         user_instruction = (
             "You are a professional caption generator. "
-            "Look at the image and write a formal 40-word description. "
+            "Look at the image and write a formal 20 words description. "
             "Do not explain your answer. "
             "Start your response with: 'You received an image of...'"
         )
     elif tone == "casual":
         user_instruction = (
-            "Look at the image and give a casual 40-word description. "
+            "Look at the image and give a casual 20 words description. "
             "No explanation, no lead-in. Just start with: 'You received an image of...'"
         )
     elif tone == "funny":
         user_instruction = (
-            "Write a funny 40-word caption describing the image. "
+            "Write a funny 20 words caption describing the image. "
             "Avoid any intro or notes. Directly start with: 'You received an image of...'"
         )
     else:
         user_instruction = (
-            "Look at the image and describe it creatively in 40 words. "
+            "Look at the image and describe it creatively in 20 words. "
             "Do not add anything before. Begin directly with: 'You received an image of...'"
         )
 
@@ -176,7 +176,15 @@ def narrate():
     text = data["text"]
     voice_id = "Matthew"
 
-    response = polly.synthesize_speech(Text=text, OutputFormat="mp3", VoiceId=voice_id)
+    # Use SSML to slow down narration speed to 75%
+    ssml_text = f"<speak><prosody rate='100%'>{text}</prosody></speak>"
+
+    response = polly.synthesize_speech(
+        Text=ssml_text,
+        TextType="ssml",
+        OutputFormat="mp3",
+        VoiceId=voice_id
+    )
 
     unique_id = str(uuid.uuid4())
     filename = f"static/narration_{unique_id}.mp3"
@@ -185,6 +193,7 @@ def narrate():
         file.write(response["AudioStream"].read())
 
     return jsonify({"audio": "/" + filename})
+
 
 
 if __name__ == "__main__":

@@ -2,8 +2,8 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <title>Bedrock AI Chat App</title>
+    <meta charset="UTF-8" />
+    <title style="padding-top: 2%;">Bedrock AI Chat App</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -89,6 +89,7 @@
 
         img {
             max-width: 100%;
+            max-height: 200px;
             height: auto;
             display: block;
             margin-top: 10px;
@@ -109,12 +110,21 @@
             border-radius: 10px;
             font-weight: bold;
         }
+
+        .highlight {
+            border: 3px solid orange;
+            box-shadow: 0 0 10px orange;
+        }
+
+        .headercss {
+            padding-top: 1%;
+        }
     </style>
 </head>
 
 <body>
 
-    <h2>Bedrock AI Chat Application</h2>
+    <h2 class="headercss">Bedrock AI Chat Application</h2>
 
     <div id="chat-container">
         <div id="user1-chat" class="chat-box"></div>
@@ -168,21 +178,57 @@
     <div id="loader">Processing...</div>
 
     <button onclick="runDemo()"
-        style="position:fixed; bottom:20px; right:20px; background:orange; color:white; font-size:16px; padding:10px 20px; border:none; border-radius:8px;">
+        style="position:fixed; bottom:20px;cursor: pointer; right:20px; background:orange; color:white; font-size:16px; padding:10px 20px; border:none; border-radius:8px;">
         🎬 Run Demo
     </button>
-
     <script>
-        function showLoader() {
-            document.getElementById("loader").style.display = "block";
+        function scrollToBottom(id) {
+            setTimeout(() => {
+                const el = document.getElementById(id);
+                if (el) el.scrollTop = el.scrollHeight;
+            }, 100); // slight delay ensures DOM is updated
         }
-        function hideLoader() {
-            document.getElementById("loader").style.display = "none";
+
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
         }
+
+        function highlight(id) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.scrollIntoView({ behavior: "smooth", block: "center" });
+                el.classList.add("highlight");
+                setTimeout(() => el.classList.remove("highlight"), 1000);
+            }
+        }
+
+        async function playAndWait(audioPath, speed = 1) {
+            return new Promise(resolve => {
+                const audio = new Audio(audioPath + '?nocache=' + Math.random());
+                audio.playbackRate = speed;
+                audio.onloadedmetadata = () => {
+                    audio.play();
+                };
+                audio.onended = resolve;
+            });
+        }
+
+
+        async function narrate(text) {
+            const res = await fetch('/narrate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            });
+            const data = await res.json();
+            await playAndWait(data.audio);
+        }
+
         function sendText(sender) {
             showLoader();
             const text = document.getElementById(sender + '-text').value;
-            const receiver = (sender === 'user1') ? 'user2' : 'user1';
+            const receiver = sender === 'user1' ? 'user2' : 'user1';
             const receiver_locale = document.getElementById(receiver + '-locale').value;
             fetch('/send_text', {
                 method: 'POST',
@@ -190,12 +236,8 @@
                 body: JSON.stringify({ text, receiver_locale, sender })
             })
                 .then(res => res.json())
-                .then(data => {
-                    addMessageToChat(receiver, data.original_text, data.translated_text, data.sentiment, data.audio);
-                    hideLoader();
-                })
-                .catch(err => {
-                    alert("Something went wrong!");
+                .then(async data => {
+                    await addMessageToChat(receiver, data.original_text, data.translated_text, data.sentiment, data.audio);
                     hideLoader();
                 });
         }
@@ -204,7 +246,7 @@
             showLoader();
             const file = document.getElementById(sender + '-image').files[0];
             const tone = document.getElementById(sender + '-tone').value;
-            const receiver = (sender === 'user1') ? 'user2' : 'user1';
+            const receiver = sender === 'user1' ? 'user2' : 'user1';
             const receiver_locale = document.getElementById(receiver + '-locale').value;
             const formData = new FormData();
             formData.append('image', file);
@@ -216,117 +258,150 @@
                 body: formData
             })
                 .then(res => res.json())
-                .then(data => {
-                    addMessageToChat(receiver, data.original_text, data.translated_text, data.sentiment, data.audio, data.image);
-                    hideLoader();
-                })
-                .catch(err => {
-                    alert("Something went wrong!");
+                .then(async data => {
+                    await addMessageToChat(receiver, data.original_text, data.translated_text, data.sentiment, data.audio, data.image);
                     hideLoader();
                 });
         }
 
-        function addMessageToChat(receiver, originalText, translatedText, sentiment, audioPath, imagePath = null) {
+        async function addMessageToChat(receiver, originalText, translatedText, sentiment, audioPath, imagePath = null) {
             const chatBox = document.getElementById(receiver + '-chat');
-            const messageDiv = document.createElement('div');
-            messageDiv.classList.add('message');
-            const translatedPara = document.createElement('p');
-            translatedPara.textContent = translatedText;
-            messageDiv.appendChild(translatedPara);
-            const originalPara = document.createElement('p');
-            originalPara.textContent = originalText;
-            originalPara.style.display = "none";
-            originalPara.style.fontStyle = "italic";
-            originalPara.style.color = "gray";
-            messageDiv.appendChild(originalPara);
-            const toggleButton = document.createElement('button');
-            toggleButton.textContent = "Show Original";
-            toggleButton.style.marginTop = "5px";
-            toggleButton.onclick = () => {
-                if (originalPara.style.display === "none") {
-                    originalPara.style.display = "block";
-                    toggleButton.textContent = "Hide Original";
-                } else {
-                    originalPara.style.display = "none";
-                    toggleButton.textContent = "Show Original";
-                }
+            const msg = document.createElement('div');
+            msg.classList.add('message');
+
+            const trans = document.createElement('p');
+            trans.textContent = translatedText;
+            msg.appendChild(trans);
+
+            const orig = document.createElement('p');
+            orig.textContent = originalText;
+            orig.style.display = "none";
+            orig.style.fontStyle = "italic";
+            orig.style.color = "gray";
+            msg.appendChild(orig);
+
+            const toggle = document.createElement('button');
+            toggle.textContent = "Show Original";
+            toggle.onclick = () => {
+                orig.style.display = orig.style.display === "none" ? "block" : "none";
+                toggle.textContent = orig.style.display === "none" ? "Show Original" : "Hide Original";
             };
-            messageDiv.appendChild(toggleButton);
+            msg.appendChild(toggle);
+
             const sentimentLabel = document.createElement('span');
-            sentimentLabel.classList.add('sentiment');
+            sentimentLabel.className = "sentiment";
             sentimentLabel.textContent = `Sentiment: ${sentiment}`;
-            messageDiv.appendChild(sentimentLabel);
+            msg.appendChild(sentimentLabel);
+
             if (imagePath) {
                 const img = document.createElement('img');
                 img.src = imagePath;
-                messageDiv.appendChild(img);
+                msg.appendChild(img);
             }
-            chatBox.appendChild(messageDiv);
-            chatBox.scrollTop = chatBox.scrollHeight;
-            const audio = new Audio(audioPath + '?nocache=' + Math.random());
-            audio.play();
-        }
 
-        // DEMO MODE BELOW 👇
+            chatBox.appendChild(msg);
+            scrollToBottom(receiver + "-chat");
+            await playAndWait(audioPath);
 
-        async function narrate(text) {
-            const res = await fetch('/narrate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text })
-            });
-            const data = await res.json();
-            const audio = new Audio(data.audio + '?nocache=' + Math.random());
-            return new Promise(resolve => {
-                audio.onended = resolve;
-                audio.play();
-            });
-        }
-
-        async function runDemo() {
-            await narrate("Welcome to the AWS Bedrock AI demo.");
-            document.getElementById("user1-locale").value = "en";
-            document.getElementById("user2-locale").value = "tl";
-            document.getElementById("user1-text").value = "Hello team, this is Bedrock AI in action.";
-            await narrate("Now sending a text message in English to be translated to Tagalog.");
-            sendText("user1");
-            await sleep(6000);
-            await narrate("Now uploading an image with a funny tone for description.");
-            await simulateImageUpload("user1", "demo.jpg");
-            await sleep(8000);
-            document.getElementById("user2-text").value = "Thanks, this is amazing!";
-            document.getElementById("user2-locale").value = "vi";
-            await narrate("User two now replies in Vietnamese.");
-            sendText("user2");
-            await sleep(6000);
-            await narrate("Demo complete. Thank you.");
         }
 
         async function simulateImageUpload(sender, filename) {
+            showLoader();
+
             const response = await fetch(`/static/${filename}`);
             const blob = await response.blob();
             const file = new File([blob], filename, { type: blob.type });
+
             const tone = document.getElementById(sender + '-tone').value;
-            const receiver = (sender === 'user1') ? 'user2' : 'user1';
+            const receiver = sender === 'user1' ? 'user2' : 'user1';
             const receiver_locale = document.getElementById(receiver + '-locale').value;
+
             const formData = new FormData();
             formData.append('image', file);
             formData.append('receiver_locale', receiver_locale);
             formData.append('tone', tone);
             formData.append('sender', sender);
+
             const res = await fetch('/send_image', {
                 method: 'POST',
                 body: formData
             });
+
             const data = await res.json();
-            addMessageToChat(receiver, data.original_text, data.translated_text, data.sentiment, data.audio, data.image);
+            await addMessageToChat(receiver, data.original_text, data.translated_text, data.sentiment, data.audio, data.image);
+
+            hideLoader();
         }
 
-        function sleep(ms) {
-            return new Promise(resolve => setTimeout(resolve, ms));
+
+        async function runDemo() {
+    await narrate("Welcome to the AWS Bedrock AI Demo, showcasing Generative AI in action. Let's start!!");
+
+    await narrate("User1 sends a positive message to User2 using Amazon Comprehend.");
+    highlight("user1-text");
+    document.getElementById("user1-text").value = "I love this app!";
+    sendText("user1");
+    await sleep(4000);
+
+    await narrate("Now User2 sends a negative message to User1 to detect sentiment.");
+    highlight("user2-text");
+    document.getElementById("user2-text").value = "This is the worst thing ever!";
+    sendText("user2");
+    await sleep(4000);
+
+    await narrate("User1 sends a neutral message to User2.");
+    highlight("user1-text");
+    document.getElementById("user1-text").value = "The meeting is at 3 PM.";
+    sendText("user1");
+    await sleep(4000);
+
+    await narrate("User2 sends a message with mixed sentiment to User1.");
+    highlight("user2-text");
+    document.getElementById("user2-text").value = "Great location but terrible food.";
+    sendText("user2");
+    await sleep(4000);
+
+    await narrate("User1 uploads an image and asks Claude 3 on Bedrock to generate a funny description.");
+    highlight("user1-tone");
+    document.getElementById("user1-tone").value = "funny";
+    await simulateImageUpload("user1", "funny.jpg");
+    await sleep(2000);
+
+    await narrate("User2 uploads an image and asks Claude 3 to generate a formal description.");
+    highlight("user2-tone");
+    document.getElementById("user2-tone").value = "formal";
+    await simulateImageUpload("user2", "formal.jpg");
+    await sleep(2000);
+
+    await narrate("User1 uploads another image and requests a casual description using Claude 3 on Bedrock.");
+    highlight("user1-tone");
+    document.getElementById("user1-tone").value = "casual";
+    await simulateImageUpload("user1", "casual.jpg");
+    await sleep(2000);
+
+    await narrate("User1 sends a message to User2 that will be translated and spoken in Chinese.");
+    highlight("user2-locale");
+    document.getElementById("user2-locale").value = "zh";
+    highlight("user1-text");
+    document.getElementById("user1-text").value = "How are you?";
+    sendText("user1");
+    await sleep(5000);
+
+    await narrate("Click 'Show Original' to toggle between the translated and original message.");
+    await sleep(2000);
+
+    await narrate("Demo complete. Thank you!");
+}
+
+
+        function showLoader() {
+            document.getElementById("loader").style.display = "block";
+        }
+
+        function hideLoader() {
+            document.getElementById("loader").style.display = "none";
         }
     </script>
-
 </body>
 
 </html>
